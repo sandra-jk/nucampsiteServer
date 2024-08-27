@@ -13,9 +13,12 @@ const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const passport = require('passport');
 const authenticate = require('./authenticate');
+const config = require('./config');
 
 const mongoose = require('mongoose');
-const url = 'mongodb://localhost:27017/nucampsites';
+
+// const url = 'mongodb://localhost:27017/nucampsites';
+const url = config.mongoUrl;
 const connect = mongoose.connect(url);
 
 connect.then(() => console.log('Connected correctly to server'),
@@ -49,20 +52,7 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
 // Authentication Middleware
-function auth(req, res, next) {
-  console.log(req.user);
 
-  if (!req.user) {
-      const err = new Error('You are not authenticated!');
-      err.status = 401;
-      return next(err);
-  } else {
-      return next();
-  }
-}
-
-// Protect routes with auth middleware
-app.use(auth);
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
