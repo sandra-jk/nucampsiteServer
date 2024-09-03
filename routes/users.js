@@ -1,17 +1,30 @@
 const express = require('express');
 const User = require('../models/users');
 const passport = require('passport');
-const router = express.Router();
 const authenticate = require('../authenticate');
 
-/* GET users listing. */
-router.get('/', function(req, res, next) {
-    res.send('respond with a resource');
+const router = express.Router();
+
+
+router.get('/', authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
+  User.find()
+  .then(users => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.json(users);
+  })
+  .catch(err => next(err));
+  res.send('respond with a resource');
 });
 
-router.post('/signup', async (req, res, next) => {
+router.post('/signup', async (req, res) => {
   try {
-      const user = new User({username: req.body.username});
+      const user = new User({ username: req.body.username });
+
+      // Register the user 
+      await User.register(user, req.body.password);
+
+      // Update the user object 
       if (req.body.firstname) {
           user.firstname = req.body.firstname;
       }
@@ -19,28 +32,23 @@ router.post('/signup', async (req, res, next) => {
           user.lastname = req.body.lastname;
       }
 
-      // Register the user with a password
-      const registeredUser = await User.register(user, req.body.password);
-      
-      // Save the user instance to the database
-      await registeredUser.save();
+    
+      await user.save();
 
-      // Authenticate the user
       passport.authenticate('local')(req, res, () => {
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
-          res.json({success: true, status: 'Registration Successful!'});
+          res.json({ success: true, status: 'Registration Successful!' });
       });
-
   } catch (err) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
-      res.json({err: err});
-      next(err);
+      res.json({ err: err });
   }
 });
 
-router.post('/login', passport.authenticate('local', { session: false }), (req, res) => {
+
+router.post('/login', passport.authenticate('local', { session: false }),(req, res) => {
   const token = authenticate.getToken({_id: req.user._id});
   res.statusCode = 200;
   res.setHeader('Content-Type', 'application/json');
@@ -48,15 +56,16 @@ router.post('/login', passport.authenticate('local', { session: false }), (req, 
 });
 
 router.get('/logout', (req, res, next) => {
-    if (req.session) {
-        req.session.destroy();
-        res.clearCookie('session-id');
-        res.redirect('/');
-    } else {
-        const err = new Error('You are not logged in!');
-        err.status = 401;
-        return next(err);
-    }
+  if(req.session) {
+    req.session.destroy();
+    res.clearCookie('session-id');
+    res.redirect('/');
+  }
+  else {
+    const err = new Error('You are not logged in');
+    err.status = 403;
+    next(err);
+  }
 });
 
 module.exports = router;
